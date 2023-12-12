@@ -31,14 +31,14 @@ unsigned int middleXScreen = screenWidth / 2;
 unsigned int middleYScreen = screenHeight / 2;
 
 bool shouldBreak = false;
-bool isRunning = false;
-bool isEditting = true;
+bool is_running = false;
+bool is_editting = true;
 
 typedef enum Screen
 {
     LOGO = 0,
-    TITLE,
-    FIXING,
+    MAIN,
+    EDITTING,
     STIMULUS,
     ENDING
 } Screen;
@@ -85,7 +85,7 @@ public:
 
     void run()
     {
-        isRunning = true;
+        is_running = true;
         int frame_end = (int)(this->duration * this->fps);
 
         SetTargetFPS(this->fps);
@@ -121,7 +121,7 @@ public:
                 EndDrawing();
             }
             ClearBackground(RAYWHITE);
-            isRunning = false;
+            is_running = false;
         }
     }
 };
@@ -224,6 +224,8 @@ private:
 
 int main(void)
 {
+
+    
     // Setting raylib variables
 
     InitWindow(screenWidth, screenHeight, "RayPort Sampler");
@@ -232,8 +234,7 @@ int main(void)
 
     Screen currentScreen = LOGO;
 
-    // Setting portaudio variables
-    // Initializing
+    vector<Stimulus*> stimuli = {};
 
     bool shouldClose = false;
 
@@ -259,16 +260,17 @@ int main(void)
             skipCount++;
             if (IsKeyPressed(KEY_ENTER) || skipCount > logoTime * screenFPS)
             {
-                currentScreen = TITLE;
+                currentScreen = MAIN;
                 skipCount = 0;
             }
             break;
-        case TITLE:
+        case MAIN:
             skipCount++;
-            if (IsKeyPressed(KEY_ENTER) || skipCount > titleTime * screenFPS)
-            {
-                currentScreen = LOGO;
-                skipCount = 0;
+            
+            if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_E)){
+                is_editting = true;
+                is_running = false;
+                currentScreen = EDITTING;
             }
             break;
         default:
@@ -284,13 +286,17 @@ int main(void)
         case LOGO:
             DrawText("Stimuli", 10, middleYScreen, 50, LIGHTGRAY);
             break;
+        
+        case MAIN:
+            DrawText("Main", 10, middleYScreen, 50, LIGHTGRAY);
+            break;
 
-        case TITLE:
-            if (!isRunning){
+        case EDITTING:
+            if (!is_running){
                 RandomCircles rc = RandomCircles(1000,2);
                 int sv_current = 0;
                 bool showFPS = false;
-                while (isEditting)
+                while (is_editting)
                 {
                     BeginDrawing();
                     ClearBackground(RAYWHITE);
@@ -305,7 +311,7 @@ int main(void)
                             make_tuple("OR", rc.getorref(), 1, 1000),
                         };
                         
-                        int sv_height = 1;
+                        float sv_height = 1;
                         int sv_count = 0;
                         for (field sv : sv_vec){
                             
@@ -329,6 +335,13 @@ int main(void)
                             }
                         }
 
+                        if (IsKeyPressed(KEY_S)){
+                            if (IsKeyDown(KEY_LEFT_CONTROL)){
+                                stimuli.push_back(&rc);
+                                is_editting = false;
+                            }
+                        }
+
                         if (IsKeyPressed(KEY_F)) { showFPS = !showFPS; }
 
                         
@@ -336,7 +349,7 @@ int main(void)
                     EndDrawing();
                 }
 
-                
+                currentScreen = MAIN;
                  // rc.run();
                 // currentScreen = LOGO;
             }
