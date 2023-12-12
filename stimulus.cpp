@@ -1,3 +1,10 @@
+/*
+ * Developed as part of undergraduate course in information technology.
+ *
+ *
+ *
+ */
+
 #define RAYLIB_IMPLEMENTATION
 #include <./raylib.h>
 
