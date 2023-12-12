@@ -1,14 +1,17 @@
+#define RAYLIB_IMPLEMENTATION
+#include <./raylib.h>
+
+#define RAYGUI_IMPLEMENTATION
+#include <raygui.h>
+
 #include <stdlib.h>
-
-#include <format>
 #include <iostream>
-
-#include <raylib.h>
-#include <functional>
 #include <vector>
 #include <complex>
 #include <math.h>
 #include <chrono>
+
+#include <tuple>
 
 using namespace std;
 
@@ -22,6 +25,7 @@ unsigned int middleYScreen = screenHeight / 2;
 
 bool shouldBreak = false;
 bool isRunning = false;
+bool isEditting = true;
 
 typedef enum Screen
 {
@@ -61,9 +65,9 @@ class Experimenter : Person
 class Stimulus
 {
 private:
-    int fps = 60;
-    float duration = 2;
-    int repetitions = 5;
+    int fps = 160;
+    float duration = 20;
+    int repetitions = 1;
     vector<int> keys = {};
     vector<double> timestamps = {};
 
@@ -77,12 +81,14 @@ public:
         isRunning = true;
         int frame_end = (int)(this->duration * this->fps);
 
-        for (int r = 0; r < this->repetitions; r++)
+        SetTargetFPS(this->fps);
+
+        for (int r = 0; r <= this->repetitions; r++)
         {
             int frame_count = 0;
             
             auto t_start = chrono::high_resolution_clock::now();
-            SetTargetFPS(this->fps);
+            
 
             while (!shouldBreak && (frame_count < frame_end))
             {
@@ -116,23 +122,38 @@ public:
 class RandomCircles : public Stimulus
 {
 private:
-    int n_elements = 100;
+    int n = 100; // number of elements
+    int s = 5; // shape size
 
-    int inner_radius = 100;
-    int outter_radius = 200;
-    int radius = 5;
+    int irad = 100; // inner radius
+    int orad = 200; // outter radius
+
     Color color = BLACK;
 
 public:
+    RandomCircles() {}
+    RandomCircles(int n) : n(n) {}
+    RandomCircles(int n, int s) : n(n), s(s) {}
+    
+    void setn(int n) { this->n = n; }
+    void sets(int s) { this->s = s; }
+    void setirad(int irad) { this->irad = irad; }
+    void setorad(int orad) { this->orad = orad; }
+
+    int *getnref() { return &this->n; }
+    int *getsref() { return &this->s; }
+    int *getirref() { return &this->irad; }
+    int *getorref() { return &this->orad; }
+
     void draw() override
     {
         complex<double> center;
-        for (int d = 0; d < this->n_elements; d++)
+        for (int d = 0; d < this->n; d++)
         {
             double theta = rand() % 360;
-            double r = this->inner_radius + rand() % (this->outter_radius - this->inner_radius);
+            double r = this->irad + rand() % (this->orad - this->irad);
             center = r * exp(1i * theta);
-            DrawCircle(real(center) + middleXScreen, imag(center) + middleYScreen, this->radius, this->color);
+            DrawCircle(real(center) + middleXScreen, imag(center) + middleYScreen, this->s, this->color);
         }
     }
 };
@@ -209,8 +230,8 @@ int main(void)
 
     bool shouldClose = false;
 
-    unsigned int logoTime = 2;  // in seconds
-    unsigned int titleTime = 5; // in seconds
+    unsigned int logoTime = 5;  // in seconds
+    unsigned int titleTime = 100; // in seconds
 
     unsigned int skipCount = 0;
     unsigned int frameCount = 0;
@@ -254,15 +275,63 @@ int main(void)
         switch (currentScreen)
         {
         case LOGO:
-            DrawText("S", 10, middleYScreen, 50, LIGHTGRAY);
+            DrawText("Stimuli", 10, middleYScreen, 50, LIGHTGRAY);
             break;
 
         case TITLE:
             if (!isRunning){
-                OddWordColor().run();
-                // FixingCenter().run();
-                // RandomCircles().run();
-                currentScreen = LOGO;
+                RandomCircles rc = RandomCircles(1000,2);
+                int sv_current = 0;
+                bool showFPS = false;
+                while (isEditting)
+                {
+                    BeginDrawing();
+                    ClearBackground(RAYWHITE);
+                
+                        if (showFPS) DrawFPS(10,10);
+                        rc.draw();
+                        using field = tuple<const char*,int*,int,int>;
+                        vector<field> sv_vec = {      
+                            make_tuple( "N", rc.getnref(),  1, 1000),
+                            make_tuple( "S", rc.getsref(),  1, 1000),
+                            make_tuple("IR", rc.getirref(), 1, 1000),
+                            make_tuple("OR", rc.getorref(), 1, 1000),
+                        };
+                        
+                        int sv_height = 1;
+                        int sv_count = 0;
+                        for (field sv : sv_vec){
+                            
+                            GuiValueBox(
+                                (Rectangle){ 600, 140+sv_height, 120, 20 }, 
+                                get<0>(sv), 
+                                get<1>(sv), 
+                                get<2>(sv), 
+                                get<3>(sv),
+                                (sv_current % sv_vec.size()) == sv_count 
+                            );
+                            sv_count += 1;
+                            sv_height += 25;
+                        }
+
+                        if (IsKeyPressed(KEY_TAB)) {
+                            if (IsKeyDown(KEY_LEFT_SHIFT)){
+                                sv_current--;
+                            } else {
+                                sv_current++;
+                            }
+                        }
+
+                        if (IsKeyPressed(KEY_F)) { showFPS = !showFPS; }
+
+                        
+                        
+                    EndDrawing();
+                }
+
+                
+                 // rc.run();
+                // currentScreen = LOGO;
             }
             break;
 
