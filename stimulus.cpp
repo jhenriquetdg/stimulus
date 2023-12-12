@@ -22,15 +22,15 @@
 
 using namespace std;
 
-unsigned int screenFPS = 60;
+unsigned int screen_FPS = 60;
 
-const int screenWidth = 800;
-const int screenHeight = 800;
+const int screen_width = 800;
+const int screen_height = 800;
 
-unsigned int middleXScreen = screenWidth / 2;
-unsigned int middleYScreen = screenHeight / 2;
+unsigned int middle_x_screen = screen_width / 2;
+unsigned int middle_y_screen = screen_height / 2;
 
-bool shouldBreak = false;
+bool should_break = false;
 bool is_running = false;
 bool is_editting = true;
 
@@ -39,9 +39,16 @@ typedef enum Screen
     LOGO = 0,
     MAIN,
     EDITTING,
-    STIMULUS,
+    RUNNING,
     ENDING
 } Screen;
+
+typedef enum Stim
+{
+    FIXING,
+    RANDOM_CIRCLE,
+    COLORED_WORDS,
+} Stim;
 
 class Person
 {
@@ -72,36 +79,51 @@ class Experimenter : Person
 class Stimulus
 {
 private:
-    int fps = 160;
-    float duration = 20;
+    int FPS = 160;
+    int duration = 20;
     int repetitions = 1;
+    int random_seed = 0;
+
     vector<int> keys = {};
     vector<double> timestamps = {};
 
-    int skipKey = KEY_ENTER;
+    int skip_key = KEY_ENTER;
     Color background = RAYWHITE;
-public:
-    virtual void draw(void) = 0;
 
+public:
+    bool pick_once = false;
+
+    int *get_ref_FPS() { return &this->FPS; }
+    int *get_ref_duration() { return &this->duration; }
+    int *get_ref_repetitions() { return &this->repetitions; }
+    int *get_ref_random_seeds() { return &this->random_seed; }
+
+    virtual void draw(void) = 0;
+    virtual void pick(void) = 0;
     void run()
     {
         is_running = true;
-        int frame_end = (int)(this->duration * this->fps);
+        int frame_end = (int)(this->duration * this->FPS);
 
-        SetTargetFPS(this->fps);
+        SetTargetFPS(this->FPS);
 
+        srand(this->random_seed);
         for (int r = 0; r <= this->repetitions; r++)
         {
             int frame_count = 0;
-            
-            auto t_start = chrono::high_resolution_clock::now();
-            
 
-            while (!shouldBreak && (frame_count < frame_end))
+            auto t_start = chrono::high_resolution_clock::now();
+
+            this->pick();
+            while (!should_break && (frame_count < frame_end))
             {
                 frame_count++;
                 BeginDrawing();
                 ClearBackground(this->background);
+                if (!this->pick_once)
+                {
+                    this->pick();
+                }
                 this->draw();
                 auto t_frame = chrono::high_resolution_clock::now();
                 int current_key = GetKeyPressed();
@@ -113,10 +135,11 @@ public:
                     this->timestamps.push_back(timestamp);
 
                     cout << "Frame:    " << frame_count << endl;
-                    cout << "Key:      " << current_key << endl;    
+                    cout << "Key:      " << current_key << endl;
                     cout << "Timestamp:" << timestamp << endl;
-                    
-                    if (current_key == this->skipKey) break;
+
+                    if (current_key == this->skip_key)
+                        should_break = true;
                 }
                 EndDrawing();
             }
@@ -129,38 +152,48 @@ public:
 class RandomCircles : public Stimulus
 {
 private:
-    int n = 100; // number of elements
-    int s = 5; // shape size
+    int n = 100;  // number of elements
+    int size = 5; // shape size
 
-    int irad = 100; // inner radius
-    int orad = 200; // outter radius
+    int inner_radius = 100;  // inner radius
+    int outter_radius = 200; // outter radius
+
+    complex<double> *points = new complex<double>[100];
 
     Color color = BLACK;
 
 public:
     RandomCircles() {}
     RandomCircles(int n) : n(n) {}
-    RandomCircles(int n, int s) : n(n), s(s) {}
-    
-    void setn(int n) { this->n = n; }
-    void sets(int s) { this->s = s; }
-    void setirad(int irad) { this->irad = irad; }
-    void setorad(int orad) { this->orad = orad; }
+    RandomCircles(int n, int s) : n(n), size(s) {}
 
-    int *getnref() { return &this->n; }
-    int *getsref() { return &this->s; }
-    int *getirref() { return &this->irad; }
-    int *getorref() { return &this->orad; }
+    int *get_ref_n() { return &this->n; }
+    int *get_ref_size() { return &this->size; }
+    int *get_ref_inner_radius() { return &this->inner_radius; }
+    int *get_ref_outter_radius() { return &this->outter_radius; }
 
+    void pick() override
+    {
+        this->points = new complex<double>[this->n];
+        for (int p = 0; p < this->n; p++)
+        {
+            double r = 0;
+            double theta = rand() % 360;
+
+            int shift = this->outter_radius - this->inner_radius;
+
+            if (shift <= 0)
+                r = this->inner_radius;
+            else
+                r = this->inner_radius + rand() % shift;
+            this->points[p] = r * exp(1i * theta);
+        }
+    }
     void draw() override
     {
-        complex<double> center;
-        for (int d = 0; d < this->n; d++)
+        for (int p = 0; p < this->n; p++)
         {
-            double theta = rand() % 360;
-            double r = this->irad + rand() % (this->orad - this->irad);
-            center = r * exp(1i * theta);
-            DrawCircle(real(center) + middleXScreen, imag(center) + middleYScreen, this->s, this->color);
+            DrawCircle(real(this->points[p]) + middle_x_screen, imag(this->points[p]) + middle_y_screen, this->size, this->color);
         }
     }
 };
@@ -168,11 +201,12 @@ public:
 class FixingCenter : public Stimulus
 {
 private:
-    const char* sign = "+";
+    const char *sign = "+";
     int font_size = 10;
-    int center_x = middleXScreen;
-    int center_y = middleYScreen;
+    int center_x = middle_x_screen;
+    int center_y = middle_y_screen;
     Color color = LIGHTGRAY;
+
 public:
     void draw() override
     {
@@ -180,11 +214,13 @@ public:
     }
 };
 
-using word_color = pair<char*, Color>;
-class OddWordColor : public Stimulus 
+using word_color = pair<char const*, Color>;
+class ColoredWords : public Stimulus
 {
 private:
     int font_size = 20;
+    int word_index;
+    int color_index;
 
     vector<word_color> wc = {
         word_color("Gray", GRAY),
@@ -203,16 +239,18 @@ private:
         word_color("Brown", BROWN),
         word_color("White", WHITE),
         word_color("Black", BLACK),
-        word_color("Magenta", MAGENTA)
-    };
-public: 
-    void draw() override 
-    {
-        unsigned int word_index = rand() % wc.size();
-        unsigned int color_index = rand() % wc.size();
-        DrawText(this->wc[word_index].first, middleXScreen, middleYScreen, this->font_size, this->wc[color_index].second);
-    }
+        word_color("Magenta", MAGENTA)};
 
+public:
+    void pick()
+    {
+        word_index = rand() % wc.size();
+        color_index = rand() % wc.size();
+    }
+    void draw() override
+    {
+        DrawText(wc[word_index].first, middle_x_screen, middle_y_screen, font_size, wc[color_index].second);
+    }
 };
 
 class Experiment
@@ -224,148 +262,179 @@ private:
 
 int main(void)
 {
-
-    
     // Setting raylib variables
+    InitWindow(screen_width, screen_height, "RayPort Sampler");
+    SetTargetFPS(screen_FPS);
 
-    InitWindow(screenWidth, screenHeight, "RayPort Sampler");
+    Screen current_screen = LOGO;
 
-    SetTargetFPS(screenFPS);
-
-    Screen currentScreen = LOGO;
-
-    vector<Stimulus*> stimuli = {};
+    vector<Stimulus *> stimuli = {};
 
     bool shouldClose = false;
 
-    unsigned int logoTime = 5;  // in seconds
-    unsigned int titleTime = 100; // in seconds
+    unsigned int logo_time = 5;    // in seconds
+    unsigned int title_time = 100; // in seconds
 
-    unsigned int skipCount = 0;
-    unsigned int frameCount = 0;
+    bool is_escaping = false;
+    unsigned int escape_time = 5;
+    unsigned int escape_count = 0;
 
-    double dt = 1 / screenFPS;
-    
+    unsigned int skip_count = 0;
+
+    unsigned int frame_count = 0;
+
+    double dt = 1 / screen_FPS;
+
+    int font_size = 20;
+    int is_show_FPS = false;
+
     while (!shouldClose)
     {
-
-        cout << "Frame Count" << frameCount << endl;
-        frameCount++;
-
-        shouldClose = IsKeyPressed(KEY_ESCAPE) || WindowShouldClose();
-
-        switch (currentScreen)
-        {
-        case LOGO:
-            skipCount++;
-            if (IsKeyPressed(KEY_ENTER) || skipCount > logoTime * screenFPS)
-            {
-                currentScreen = MAIN;
-                skipCount = 0;
-            }
-            break;
-        case MAIN:
-            skipCount++;
-            
-            if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_E)){
-                is_editting = true;
-                is_running = false;
-                currentScreen = EDITTING;
-            }
-            break;
-        default:
-            break;
-        }
+        frame_count++;
+        GuiSetStyle(DEFAULT, TEXT_SIZE, font_size);
+        SetExitKey(KEY_NULL);
+        shouldClose = WindowShouldClose();
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        DrawFPS(40,40);
-        
-        switch (currentScreen)
+        if (is_show_FPS)
+            DrawFPS(40, 40);
+        if (IsKeyPressed(KEY_F))
+        {
+            is_show_FPS = !is_show_FPS;
+        }
+
+        switch (current_screen)
         {
         case LOGO:
-            DrawText("Stimuli", 10, middleYScreen, 50, LIGHTGRAY);
+            DrawText("Stimuli", 5, screen_height - 50, 50, LIGHTGRAY);
+            skip_count++;
+            if (IsKeyPressed(KEY_ENTER) || skip_count > logo_time * screen_FPS)
+            {
+                current_screen = MAIN;
+                skip_count = 0;
+            }
             break;
-        
+
         case MAIN:
-            DrawText("Main", 10, middleYScreen, 50, LIGHTGRAY);
+            DrawText("Main", 5, screen_height - 50, 50, LIGHTGRAY);
+            skip_count++;
+
+            if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_E))
+            {
+                is_editting = true;
+                is_running = false;
+                current_screen = EDITTING;
+            }
             break;
 
         case EDITTING:
-            if (!is_running){
-                RandomCircles rc = RandomCircles(1000,2);
-                int sv_current = 0;
-                bool showFPS = false;
+            if (!is_running)
+            {
+                RandomCircles *rc = new RandomCircles(1000, 2);
+                int f_current = 0;
+                bool show_FPS = true;
+                rc->pick();
                 while (is_editting)
                 {
                     BeginDrawing();
                     ClearBackground(RAYWHITE);
-                
-                        if (showFPS) DrawFPS(10,10);
-                        rc.draw();
-                        using field = tuple<const char*,int*,int,int>;
-                        vector<field> sv_vec = {      
-                            make_tuple( "N", rc.getnref(),  1, 1000),
-                            make_tuple( "S", rc.getsref(),  1, 1000),
-                            make_tuple("IR", rc.getirref(), 1, 1000),
-                            make_tuple("OR", rc.getorref(), 1, 1000),
-                        };
-                        
-                        float sv_height = 1;
-                        int sv_count = 0;
-                        for (field sv : sv_vec){
-                            
-                            GuiValueBox(
-                                (Rectangle){ 600, 140+sv_height, 120, 20 }, 
-                                get<0>(sv), 
-                                get<1>(sv), 
-                                get<2>(sv), 
-                                get<3>(sv),
-                                (sv_current % sv_vec.size()) == sv_count 
-                            );
-                            sv_count += 1;
-                            sv_height += 25;
+                    SetTargetFPS(*rc->get_ref_FPS());
+
+                    if (show_FPS)
+                        DrawFPS(10, 10);
+                    if (!rc->pick_once)
+                        rc->pick();
+                    rc->draw();
+                    using field = tuple<const char *, int *, int, int>;
+                    vector<field> field_vector = {
+                        make_tuple("N", rc->get_ref_n(), 1, 1000),
+                        make_tuple("size", rc->get_ref_size(), 1, 1000),
+                        make_tuple("inner", rc->get_ref_inner_radius(), 1, 1000),
+                        make_tuple("outter", rc->get_ref_outter_radius(), 1, 1000),
+                        make_tuple("FPS", rc->get_ref_FPS(), 1, 1000),
+                        make_tuple("duration", rc->get_ref_duration(), 1, 1000),
+                        make_tuple("seed", rc->get_ref_random_seeds(), 1, 1000),
+                    };
+
+                    float field_height = 0;
+                    int field_count = 0;
+
+                    int field_index = f_current % field_vector.size();
+
+                    for (field f : field_vector)
+                    {
+                        GuiValueBox(
+                            (Rectangle){600, 140 + field_height, 120, 20},
+                            get<0>(f),
+                            get<1>(f),
+                            get<2>(f),
+                            get<3>(f),
+                            field_index == field_count);
+                        field_count += 1;
+                        field_height += 25;
+                    }
+
+                    if (IsKeyPressed(KEY_UP) || IsKeyDown(KEY_RIGHT))
+                    {
+                        if (*get<1>(field_vector[field_index]) < get<3>(field_vector[field_index]))
+                            *get<1>(field_vector[field_index]) += 1;
+                    }
+
+                    if (IsKeyPressed(KEY_DOWN) || IsKeyDown(KEY_LEFT))
+                    {
+                        if (*get<1>(field_vector[field_index]) > get<2>(field_vector[field_index]))
+                            *get<1>(field_vector[field_index]) -= 1;
+                    }
+
+                    if (IsKeyPressed(KEY_TAB))
+                    {
+                        if (IsKeyDown(KEY_LEFT_SHIFT))
+                        {
+                            f_current--;
                         }
-
-                        if (IsKeyPressed(KEY_TAB)) {
-                            if (IsKeyDown(KEY_LEFT_SHIFT)){
-                                sv_current--;
-                            } else {
-                                sv_current++;
-                            }
+                        else
+                        {
+                            f_current++;
                         }
+                    }
 
-                        if (IsKeyPressed(KEY_S)){
-                            if (IsKeyDown(KEY_LEFT_CONTROL)){
-                                stimuli.push_back(&rc);
-                                is_editting = false;
-                            }
+                    if (IsKeyPressed(KEY_S))
+                    {
+                        if (IsKeyDown(KEY_LEFT_CONTROL))
+                        {
+                            stimuli.push_back(rc);
+                            is_editting = false;
                         }
+                    }
 
-                        if (IsKeyPressed(KEY_F)) { showFPS = !showFPS; }
+                    if (IsKeyPressed(KEY_C))
+                    {
+                        if (IsKeyDown(KEY_LEFT_CONTROL))
+                        {
+                            delete rc;
+                            is_editting = false;
+                        }
+                    }
 
-                        
-                        
+                    if (IsKeyPressed(KEY_F))
+                    {
+                        show_FPS = !show_FPS;
+                    }
+
                     EndDrawing();
                 }
 
-                currentScreen = MAIN;
-                 // rc.run();
-                // currentScreen = LOGO;
+                current_screen = MAIN;
             }
             break;
 
         default:
             break;
         }
-
-        string content;
-
-        DrawText(TextFormat("A label %d text", frameCount), 190, 200, 20, LIGHTGRAY);
+        // DrawText(TextFormat("A label %d text", frameCount), 190, 200, 20, LIGHTGRAY);
         EndDrawing();
     }
-
-    // Releasing raylib window
 
     CloseWindow();
 
