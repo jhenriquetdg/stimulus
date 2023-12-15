@@ -13,8 +13,7 @@
 
 #include <jsoncpp/json/json.h>
 
-#include <sqlite3.h>
-
+#include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <complex>
@@ -55,32 +54,6 @@ typedef enum Stim
     RANDOM_CIRCLE,
     COLORED_WORDS,
 } Stim;
-
-class Person
-{
-private:
-    string name;
-    string email;
-
-public:
-    string setName(string name)
-    {
-        this->name = name;
-        return this->name;
-    }
-    string getName()
-    {
-        return this->name;
-    }
-};
-
-class Subject : Person
-{
-};
-
-class Experimenter : Person
-{
-};
 
 class Stimulus
 {
@@ -241,11 +214,29 @@ public:
         return root.toStyledString();
     }
 
+    string to_string()
+    {
+        std::string result = "RandomCircles(" + 
+                                std::to_string(this->n) + "," +
+                                std::to_string(this->size) + "," +
+                                std::to_string(this->inner_radius) + "," +
+                                std::to_string(this->outter_radius) + "," +
+                                std::to_string(this->FPS) + "," +
+                                std::to_string(this->duration) + "," +
+                                std::to_string(this->repetitions) + "," +
+                                std::to_string(this->random_seed) +
+                            ")";
+        
+        return result;
+    }
+
     static RandomCircles from_json(Json::Value root)
     {
-        RandomCircles *rc = NULL;
-
-        if (root["type"] != "RandomCircles")
+        int f = 0;
+        
+        RandomCircles *rc = new RandomCircles();
+        
+        if (root["type"] == "RandomCircles")
         {
             rc->n = root.isMember("n") ? root["n"].asInt() : 100;
             rc->size = root.isMember("size") ? root["size"].asInt() : 5;
@@ -301,11 +292,26 @@ public:
 
         return root.toStyledString();
     }
+
+    std::string to_string()
+    {
+        std::string result = "Fixing(" + 
+                                std::to_string(this->font_size) + "," +
+                                std::to_string(this->center_x) + "," +
+                                std::to_string(this->center_y) + "," +
+                                std::to_string(this->FPS) + "," +
+                                std::to_string(this->duration) + "," +
+                                std::to_string(this->repetitions) + "," +
+                                std::to_string(this->random_seed) +
+                            ")";
+        return result;
+    }
+
     static Fixing from_json(Json::Value root)
     {
         Fixing *s = NULL;
 
-        if (root["type"] != "Fixing")
+        if (root["type"] == "Fixing")
         {
             s->sign = root.isMember("sign") ? root["sign"].asCString() : "+";
             s->font_size = root.isMember("font_size") ? root["font_size"].asInt() : 1;
@@ -377,11 +383,24 @@ public:
 
         return root.toStyledString();
     }
+    
+    std::string to_string()
+    {
+        std::string result = "ColoredWords(" + 
+                        std::to_string(this->font_size) + "," +
+                        std::to_string(this->FPS) + "," +
+                        std::to_string(this->duration) + "," +
+                        std::to_string(this->repetitions) + "," +
+                        std::to_string(this->random_seed) +
+                    ")";
+        return result;
+    }
+    
     static ColoredWords from_json(Json::Value root)
     {
         ColoredWords *s = NULL;
 
-        if (root["type"] != "ColoredWords")
+        if (root["type"] == "ColoredWords")
         {
             s->font_size = root.isMember("font_size") ? root["font_size"].asInt() : 20;
             s->FPS = root.isMember("FPS") ? root["FPS"].asInt() : 60;
@@ -397,6 +416,8 @@ public:
 
         return *s;
     }
+
+
 };
 
 class Experiment
@@ -482,36 +503,43 @@ int main(void)
         case MAIN:
             DrawText("Main", 5, screen_height - 50, 50, LIGHTGRAY);
             skip_count++;
-
-            if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_D))
+            
+            if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L))
             {
+                
                 for (auto const &dir_entry : std::filesystem::directory_iterator{"files/stimuli"})
                 {
+                    
                     ifstream input_file(dir_entry.path());
                     Json::Value root;
                     input_file >> root;
                     input_file.close();
-
+                    
                     if (root.isMember("type"))
                     {
                         if (root["type"] == "Fixing")
                         {
                             Fixing f = Fixing::from_json(root);
                             stimuli.push_back(&f);
+                            cout << f.to_string() << endl;
                         }
                         else if (root["type"] == "RandomCircles")
                         {
-                            RandomCircles rc = RandomCircles::from_json(root);
+                            RandomCircles rc = RandomCircles::from_json(root);   
                             stimuli.push_back(&rc);
+                            cout << rc.to_string() << endl;
                         }
                         else if (root["type"] == "ColoredWords")
                         {
                             ColoredWords cw = ColoredWords::from_json(root);
                             stimuli.push_back(&cw);
+                            cout << cw.to_string() << endl;
                         }
                     }
                 }
             }
+
+
 
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_E))
             {
