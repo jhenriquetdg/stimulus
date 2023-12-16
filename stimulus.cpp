@@ -38,6 +38,8 @@ bool should_break = false;
 bool is_presenting = false;
 bool is_editting = true;
 
+Font font = GetFontDefault();
+
 typedef enum Screen
 {
     LOGO = 0,
@@ -51,7 +53,7 @@ typedef enum Screen
 typedef enum Stim
 {
     FIXING,
-    RANDOM_CIRCLE,
+    RANDOM_CIRCLES,
     COLORED_WORDS,
 } Stim;
 
@@ -74,19 +76,15 @@ public:
     virtual void pick(void) = 0;
     virtual void draw(void) = 0;
     virtual Json::String to_json(void) = 0;
+    virtual std::string to_string() = 0;
 
     void save()
     {
         stringstream stream;
-
         stream << hex << filesystem::hash_value(this->to_json());
-
         string filename(stream.str());
-
         ofstream file = ofstream("./files/stimuli/" + filename + ".json", ios::out);
-
         file << this->to_json();
-
         file.close();
     }
 
@@ -136,6 +134,80 @@ public:
             ClearBackground(RAYWHITE);
             is_presenting = false;
         }
+    }
+};
+
+class Fixing : public Stimulus
+{
+public:
+    const char *sign = "+";
+    int font_size = 10;
+    int center_x = middle_x_screen;
+    int center_y = middle_y_screen;
+    Color color = LIGHTGRAY;
+
+    void pick() override
+    {
+    }
+
+    void draw() override
+    {
+        DrawText(this->sign, this->center_x, this->center_y, this->font_size, this->color);
+    }
+
+    Json::String to_json()
+    {
+        Json::Value root;
+
+        root["type"] = "Fixing";
+        root["sign"] = this->sign;
+        root["font_size"] = this->font_size;
+        root["center_x"] = this->center_x;
+        root["center_y"] = this->center_y;
+        root["FPS"] = this->FPS;
+        root["duration"] = this->duration;
+        root["repetitions"] = this->repetitions;
+        root["random_seed"] = this->random_seed;
+
+        return root.toStyledString();
+    }
+
+    std::string to_string() override
+    {
+        std::string result = "Fixing(" +
+                             std::to_string(this->font_size) + "," +
+                             std::to_string(this->center_x) + "," +
+                             std::to_string(this->center_y) + "," +
+                             std::to_string(this->FPS) + "," +
+                             std::to_string(this->duration) + "," +
+                             std::to_string(this->repetitions) + "," +
+                             std::to_string(this->random_seed) +
+                             ")";
+        return result;
+    }
+
+    static Fixing from_json(Json::Value root)
+    {
+        Fixing *s = NULL;
+
+        if (root["type"] == "Fixing")
+        {
+            s->sign = root.isMember("sign") ? root["sign"].asCString() : "+";
+            s->font_size = root.isMember("font_size") ? root["font_size"].asInt() : 1;
+            s->center_x = root.isMember("center_x") ? root["center_x"].asInt() : 1;
+            s->center_y = root.isMember("center_Y") ? root["center_Y"].asInt() : 1;
+            s->FPS = root.isMember("FPS") ? root["FPS"].asInt() : 60;
+            s->duration = root.isMember("duration") ? root["duration"].asInt() : 5;
+            s->repetitions = root.isMember("repetitions") ? root["repetitions"].asInt() : 1;
+            s->random_seed = root.isMember("random_seed") ? root["random_seed"].asInt() : 0;
+            s->pick_once = true;
+        }
+        else
+        {
+            cerr << "Failed to load file; incorrect type." << endl;
+        }
+
+        return *s;
     }
 };
 
@@ -214,28 +286,28 @@ public:
         return root.toStyledString();
     }
 
-    string to_string()
+    string to_string() override
     {
-        std::string result = "RandomCircles(" + 
-                                std::to_string(this->n) + "," +
-                                std::to_string(this->size) + "," +
-                                std::to_string(this->inner_radius) + "," +
-                                std::to_string(this->outter_radius) + "," +
-                                std::to_string(this->FPS) + "," +
-                                std::to_string(this->duration) + "," +
-                                std::to_string(this->repetitions) + "," +
-                                std::to_string(this->random_seed) +
-                            ")";
-        
+        std::string result = "RandomCircles(" +
+                             std::to_string(this->n) + "," +
+                             std::to_string(this->size) + "," +
+                             std::to_string(this->inner_radius) + "," +
+                             std::to_string(this->outter_radius) + "," +
+                             std::to_string(this->FPS) + "," +
+                             std::to_string(this->duration) + "," +
+                             std::to_string(this->repetitions) + "," +
+                             std::to_string(this->random_seed) +
+                             ")";
+
         return result;
     }
 
     static RandomCircles from_json(Json::Value root)
     {
         int f = 0;
-        
+
         RandomCircles *rc = new RandomCircles();
-        
+
         if (root["type"] == "RandomCircles")
         {
             rc->n = root.isMember("n") ? root["n"].asInt() : 100;
@@ -257,85 +329,10 @@ public:
     }
 };
 
-class Fixing : public Stimulus
-{
-private:
-    const char *sign = "+";
-    int font_size = 10;
-    int center_x = middle_x_screen;
-    int center_y = middle_y_screen;
-    Color color = LIGHTGRAY;
-
-public:
-    void pick() override
-    {
-    }
-
-    void draw() override
-    {
-        DrawText(this->sign, this->center_x, this->center_y, this->font_size, this->color);
-    }
-
-    Json::String to_json()
-    {
-        Json::Value root;
-
-        root["type"] = "Fixing";
-        root["sign"] = this->sign;
-        root["font_size"] = this->font_size;
-        root["center_x"] = this->center_x;
-        root["center_y"] = this->center_y;
-        root["FPS"] = this->FPS;
-        root["duration"] = this->duration;
-        root["repetitions"] = this->repetitions;
-        root["random_seed"] = this->random_seed;
-
-        return root.toStyledString();
-    }
-
-    std::string to_string()
-    {
-        std::string result = "Fixing(" + 
-                                std::to_string(this->font_size) + "," +
-                                std::to_string(this->center_x) + "," +
-                                std::to_string(this->center_y) + "," +
-                                std::to_string(this->FPS) + "," +
-                                std::to_string(this->duration) + "," +
-                                std::to_string(this->repetitions) + "," +
-                                std::to_string(this->random_seed) +
-                            ")";
-        return result;
-    }
-
-    static Fixing from_json(Json::Value root)
-    {
-        Fixing *s = NULL;
-
-        if (root["type"] == "Fixing")
-        {
-            s->sign = root.isMember("sign") ? root["sign"].asCString() : "+";
-            s->font_size = root.isMember("font_size") ? root["font_size"].asInt() : 1;
-            s->center_x = root.isMember("center_x") ? root["center_x"].asInt() : 1;
-            s->center_y = root.isMember("center_Y") ? root["center_Y"].asInt() : 1;
-            s->FPS = root.isMember("FPS") ? root["FPS"].asInt() : 60;
-            s->duration = root.isMember("duration") ? root["duration"].asInt() : 5;
-            s->repetitions = root.isMember("repetitions") ? root["repetitions"].asInt() : 1;
-            s->random_seed = root.isMember("random_seed") ? root["random_seed"].asInt() : 0;
-            s->pick_once = true;
-        }
-        else
-        {
-            cerr << "Failed to load file; incorrect type." << endl;
-        }
-
-        return *s;
-    }
-};
-
 using word_color = pair<char const *, Color>;
 class ColoredWords : public Stimulus
 {
-private:
+public:
     int font_size = 20;
     int word_index;
     int color_index;
@@ -359,7 +356,6 @@ private:
         word_color("Black", BLACK),
         word_color("Magenta", MAGENTA)};
 
-public:
     void pick()
     {
         word_index = rand() % wc.size();
@@ -383,19 +379,19 @@ public:
 
         return root.toStyledString();
     }
-    
-    std::string to_string()
+
+    std::string to_string() override
     {
-        std::string result = "ColoredWords(" + 
-                        std::to_string(this->font_size) + "," +
-                        std::to_string(this->FPS) + "," +
-                        std::to_string(this->duration) + "," +
-                        std::to_string(this->repetitions) + "," +
-                        std::to_string(this->random_seed) +
-                    ")";
+        std::string result = "ColoredWords(" +
+                             std::to_string(this->font_size) + "," +
+                             std::to_string(this->FPS) + "," +
+                             std::to_string(this->duration) + "," +
+                             std::to_string(this->repetitions) + "," +
+                             std::to_string(this->random_seed) +
+                             ")";
         return result;
     }
-    
+
     static ColoredWords from_json(Json::Value root)
     {
         ColoredWords *s = NULL;
@@ -416,8 +412,6 @@ public:
 
         return *s;
     }
-
-
 };
 
 class Experiment
@@ -438,6 +432,218 @@ public:
     }
 };
 
+void load_from_disk(vector<Stimulus *> *stimuli)
+{
+    stimuli->clear();
+    for (auto const &dir_entry : std::filesystem::directory_iterator{"files/stimuli"})
+    {
+
+        ifstream input_file(dir_entry.path());
+        Json::Value root;
+        input_file >> root;
+        input_file.close();
+
+        if (root.isMember("type"))
+        {
+            if (root["type"] == "Fixing")
+            {
+                Fixing *f = new Fixing;
+                *f = Fixing::from_json(root);
+                stimuli->push_back(f);
+                cout << f->to_string() << endl;
+            }
+            else if (root["type"] == "RandomCircles")
+            {
+                RandomCircles *rc = new RandomCircles;
+                *rc = RandomCircles::from_json(root);
+                stimuli->push_back(rc);
+                cout << rc->to_string() << endl;
+            }
+            else if (root["type"] == "ColoredWords")
+            {
+                ColoredWords *cw = new ColoredWords;
+                *cw = ColoredWords::from_json(root);
+                stimuli->push_back(cw);
+                cout << cw->to_string() << endl;
+            }
+        }
+    }
+}
+
+Stimulus *current_stimulus;
+uint64_t current_stimulus_index = 0;
+
+#define COLOR_ACCENT ColorFromHSV(225, 0.75, 0.8)
+#define COLOR_BACKGROUND DARKGRAY
+#define COLOR_TRACK_PANEL_BACKGROUND ColorBrightness(COLOR_BACKGROUND, -0.1)
+#define COLOR_TRACK_BUTTON_BACKGROUND ColorBrightness(COLOR_BACKGROUND, 0.15)
+#define COLOR_TRACK_BUTTON_HOVEROVER ColorBrightness(COLOR_TRACK_BUTTON_BACKGROUND, 0.15)
+#define COLOR_TRACK_BUTTON_SELECTED COLOR_ACCENT
+
+typedef enum
+{
+    BS_NONE = 0,      // 00
+    BS_HOVEROVER = 1, // 01
+    BS_CLICKED = 2,   // 10
+} Button_State;
+
+int button_with_id(uint64_t id, Rectangle boundary)
+{
+    Vector2 mouse = GetMousePosition();
+    int hoverover = CheckCollisionPointRec(mouse, boundary);
+
+    if (hoverover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        current_stimulus_index = id;
+    }
+
+    return hoverover;
+}
+
+static void stimuli_panel(vector<Stimulus *> stimuli, Rectangle panel_boundary)
+{
+    DrawRectangleRec(panel_boundary, COLOR_TRACK_PANEL_BACKGROUND);
+
+    Vector2 mouse = GetMousePosition();
+
+    float scroll_bar_width = panel_boundary.width * 0.03;
+
+    float item_size = panel_boundary.width * 0.2;
+    float visible_area_size = panel_boundary.height;
+    float entire_scrollable_area = item_size * stimuli.size();
+
+    static float panel_scroll = 0;
+    static float panel_velocity = 0;
+    panel_velocity *= 0.9;
+    if (CheckCollisionPointRec(mouse, panel_boundary))
+    {
+        panel_velocity += GetMouseWheelMove() * item_size * 8;
+    }
+    panel_scroll -= panel_velocity * GetFrameTime();
+
+    static bool scrolling = false;
+    static float scrolling_mouse_offset = 0.0f;
+    if (scrolling)
+    {
+        panel_scroll = (mouse.y - panel_boundary.y - scrolling_mouse_offset) / visible_area_size * entire_scrollable_area;
+    }
+
+    float min_scroll = 0;
+    if (panel_scroll < min_scroll)
+        panel_scroll = min_scroll;
+    float max_scroll = entire_scrollable_area - visible_area_size;
+    if (max_scroll < 0)
+        max_scroll = 0;
+    if (panel_scroll > max_scroll)
+        panel_scroll = max_scroll;
+    float panel_padding = item_size * 0.1;
+
+    uint64_t id = 0;
+
+    BeginScissorMode(panel_boundary.x, panel_boundary.y, panel_boundary.width, panel_boundary.height);
+    for (size_t i = 0; i < stimuli.size(); i++)
+    {
+        Rectangle item_boundary = {
+            .x = panel_boundary.x + panel_padding,
+            .y = i * item_size + panel_boundary.y + panel_padding - panel_scroll,
+            .width = panel_boundary.width - panel_padding * 2 - scroll_bar_width,
+            .height = item_size - panel_padding * 2,
+        };
+        Color color;
+        if ((i != current_stimulus_index))
+        {
+            int state = button_with_id(i, GetCollisionRec(panel_boundary, item_boundary));
+            if (state & BS_HOVEROVER)
+            {
+                color = COLOR_TRACK_BUTTON_HOVEROVER;
+            }
+            else
+            {
+                color = COLOR_TRACK_BUTTON_BACKGROUND;
+            }
+            if (state & BS_CLICKED)
+            {
+                current_stimulus = stimuli[i];
+                current_stimulus_index = i;
+            }
+        }
+        else
+        {
+            color = COLOR_TRACK_BUTTON_SELECTED;
+        }
+
+        DrawRectangleRounded(item_boundary, 0.2, 20, color);
+
+        string aux = stimuli[i]->to_string();
+        const char *text = aux.c_str();
+
+        float fontSize = item_boundary.height * 0.5;
+        float text_padding = item_boundary.width * 0.05;
+        Vector2 size = MeasureTextEx(font, text, fontSize, 0);
+        Vector2 position = {
+            .x = item_boundary.x + text_padding,
+            .y = item_boundary.y + item_boundary.height * 0.333 - size.y * 0.5,
+        };
+
+        DrawTextEx(font, text, position, fontSize, 0, WHITE);
+    }
+
+    if (entire_scrollable_area > visible_area_size)
+    {
+        float t = visible_area_size / entire_scrollable_area;
+        float q = panel_scroll / entire_scrollable_area;
+        Rectangle scroll_bar_area = {
+            .x = panel_boundary.x + panel_boundary.width - scroll_bar_width,
+            .y = panel_boundary.y,
+            .width = scroll_bar_width,
+            .height = panel_boundary.height,
+        };
+
+        Rectangle scroll_bar_boundary = {
+            .x = panel_boundary.x + panel_boundary.width - scroll_bar_width,
+            .y = panel_boundary.y + panel_boundary.height * q,
+            .width = scroll_bar_width,
+            .height = panel_boundary.height * t,
+        };
+        DrawRectangleRounded(scroll_bar_boundary, 0.8, 20, COLOR_TRACK_BUTTON_BACKGROUND);
+
+        if (scrolling)
+        {
+            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+            {
+                scrolling = false;
+            }
+        }
+        else
+        {
+            if (CheckCollisionPointRec(mouse, scroll_bar_boundary))
+            {
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                {
+                    scrolling = true;
+                    scrolling_mouse_offset = mouse.y - scroll_bar_boundary.y;
+                }
+            }
+            else if (CheckCollisionPointRec(mouse, scroll_bar_area))
+            {
+                if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+                {
+                    if (mouse.y < scroll_bar_boundary.y)
+                    {
+                        panel_velocity += item_size * 16;
+                    }
+                    else if (scroll_bar_boundary.y + scroll_bar_boundary.height < mouse.y)
+                    {
+                        panel_velocity += -item_size * 16;
+                    }
+                }
+            }
+        }
+    }
+
+    EndScissorMode();
+}
+
 int main(void)
 {
     // Setting raylib variables
@@ -449,9 +655,12 @@ int main(void)
     filesystem::create_directories("./files/experiments");
     filesystem::create_directories("./files/people");
 
-    Screen current_screen = LOGO;
-
     vector<Stimulus *> stimuli = {};
+    vector<Stimulus *> exp_stimuli = {};
+
+    load_from_disk(&stimuli);
+
+    Screen current_screen = LOGO;
 
     bool should_close = false;
 
@@ -469,6 +678,8 @@ int main(void)
 
     int font_size = 20;
     bool is_show_FPS = false;
+
+    Stim current_stimulus_type = RANDOM_CIRCLES;
 
     while (!should_close)
     {
@@ -503,43 +714,25 @@ int main(void)
         case MAIN:
             DrawText("Main", 5, screen_height - 50, 50, LIGHTGRAY);
             skip_count++;
-            
+
+            stimuli_panel(stimuli, (Rectangle){
+                                       .x = 0,
+                                       .y = 0,
+                                       .width = 300,
+                                       .height = 400,
+                                   });
+
+            stimuli_panel(exp_stimuli, (Rectangle){
+                                           .x = 400,
+                                           .y = 0,
+                                           .width = 300,
+                                           .height = 400,
+                                       });
+
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L))
             {
-                
-                for (auto const &dir_entry : std::filesystem::directory_iterator{"files/stimuli"})
-                {
-                    
-                    ifstream input_file(dir_entry.path());
-                    Json::Value root;
-                    input_file >> root;
-                    input_file.close();
-                    
-                    if (root.isMember("type"))
-                    {
-                        if (root["type"] == "Fixing")
-                        {
-                            Fixing f = Fixing::from_json(root);
-                            stimuli.push_back(&f);
-                            cout << f.to_string() << endl;
-                        }
-                        else if (root["type"] == "RandomCircles")
-                        {
-                            RandomCircles rc = RandomCircles::from_json(root);   
-                            stimuli.push_back(&rc);
-                            cout << rc.to_string() << endl;
-                        }
-                        else if (root["type"] == "ColoredWords")
-                        {
-                            ColoredWords cw = ColoredWords::from_json(root);
-                            stimuli.push_back(&cw);
-                            cout << cw.to_string() << endl;
-                        }
-                    }
-                }
+                load_from_disk(&stimuli);
             }
-
-
 
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_E))
             {
@@ -561,16 +754,54 @@ int main(void)
         case EDITTING:
             if (true)
             {
-                RandomCircles *rc = new RandomCircles();
+                using field = tuple<const char *, int *, int, int>;
+                vector<field> field_vector = {};
+
+                switch (current_stimulus_type)
+                {
+                case FIXING:
+                    Fixing *editting_fix_stim = new Fixing();
+                    field_vector.push_back(make_tuple("font_size", &editting_fix_stim->font_size, 1, 1000));
+                    field_vector.push_back(make_tuple("center_x", &editting_fix_stim->center_x, 1, 1000));
+                    field_vector.push_back(make_tuple("center_y", &editting_fix_stim->center_y, 1, 1000));
+
+                    break;
+                case RANDOM_CIRCLES:
+                    RandomCircles *editting_stim = new RandomCircles();
+
+                    field_vector.push_back(make_tuple("N", &editting_stim->n, 1, 1000));
+                    field_vector.push_back(make_tuple("size", &editting_stim->size, 1, 1000));
+                    field_vector.push_back(make_tuple("inner", &editting_stim->inner_radius, 1, 1000));
+                    field_vector.push_back(make_tuple("outter", &editting_stim->outter_radius, 1, 1000));
+
+                    break;
+                case COLORED_WORDS:
+                    ColoredWords *editting_stim = new ColoredWords();
+
+                    field_vector.push_back(make_tuple("font_size", &editting_stim->font_size, 1, 100));
+                    break;
+                }
+                
+                // RandomCircles *editting_stim = new RandomCircles();
+
+                // field_vector.push_back(make_tuple("N", &editting_stim->n, 1, 1000));
+                // field_vector.push_back(make_tuple("size", &editting_stim->size, 1, 1000));
+                // field_vector.push_back(make_tuple("inner", &editting_stim->inner_radius, 1, 1000));
+                // field_vector.push_back(make_tuple("outter", &editting_stim->outter_radius, 1, 1000));
+                // field_vector.push_back(make_tuple("FPS", &editting_stim->FPS, 10, 1000));
+                // field_vector.push_back(make_tuple("duration", &editting_stim->duration, 1, 1000));
+                // field_vector.push_back(make_tuple("seed", &editting_stim->random_seed, 0, 1000));
+
                 int f_current = 0;
                 bool show_FPS = true;
-                rc->pick();
+
+                editting_stim->pick();
 
                 while (is_editting)
                 {
                     BeginDrawing();
                     ClearBackground(RAYWHITE);
-                    SetTargetFPS(rc->FPS);
+                    SetTargetFPS(editting_stim->FPS);
 
                     if (show_FPS)
                         DrawFPS(10, 10);
@@ -580,21 +811,10 @@ int main(void)
                         show_FPS = !show_FPS;
                     }
 
-                    if (!rc->pick_once)
-                        rc->pick();
+                    if (!editting_stim->pick_once || IsKeyPressed(KEY_ENTER))
+                        editting_stim->pick();
 
-                    rc->draw();
-
-                    using field = tuple<const char *, int *, int, int>;
-                    vector<field> field_vector = {
-                        make_tuple("N", &rc->n, 1, 1000),
-                        make_tuple("size", &rc->size, 1, 1000),
-                        make_tuple("inner", &rc->inner_radius, 1, 1000),
-                        make_tuple("outter", &rc->outter_radius, 1, 1000),
-                        make_tuple("FPS", &rc->FPS, 10, 1000),
-                        make_tuple("duration", &rc->duration, 1, 1000),
-                        make_tuple("seed", &rc->random_seed, 0, 1000),
-                    };
+                    editting_stim->draw();
 
                     float field_height = 0;
                     int field_count = 0;
@@ -642,8 +862,8 @@ int main(void)
                     {
                         if (IsKeyDown(KEY_LEFT_CONTROL))
                         {
-                            rc->save();
-                            // is_editting = false;
+                            editting_stim->save();
+                            is_editting = false;
                         }
                     }
 
@@ -651,7 +871,7 @@ int main(void)
                     {
                         if (IsKeyDown(KEY_LEFT_CONTROL))
                         {
-                            delete rc;
+                            delete editting_stim;
                             is_editting = false;
                         }
                     }
@@ -675,7 +895,7 @@ int main(void)
         default:
             break;
         }
-        // DrawText(TextFormat("A label %d text", frameCount), 190, 200, 20, LIGHTGRAY);
+
         EndDrawing();
     }
 
