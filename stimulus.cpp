@@ -1,10 +1,3 @@
-/*
- * Developed as part of undergraduate course in information technology.
- *
- *
- *
- */
-
 #define RAYLIB_IMPLEMENTATION
 #include <./raylib.h>
 
@@ -141,7 +134,7 @@ class Fixing : public Stimulus
 {
 public:
     const char *sign = "+";
-    int font_size = 10;
+    int font_size = 70;
     int center_x = middle_x_screen;
     int center_y = middle_y_screen;
     Color color = LIGHTGRAY;
@@ -188,7 +181,7 @@ public:
 
     static Fixing from_json(Json::Value root)
     {
-        Fixing *s = NULL;
+        Fixing *s = new Fixing;
 
         if (root["type"] == "Fixing")
         {
@@ -394,7 +387,7 @@ public:
 
     static ColoredWords from_json(Json::Value root)
     {
-        ColoredWords *s = NULL;
+        ColoredWords *s = new ColoredWords;
 
         if (root["type"] == "ColoredWords")
         {
@@ -414,24 +407,6 @@ public:
     }
 };
 
-class Experiment
-{
-private:
-    string name;
-    vector<Stimulus> batch;
-
-public:
-    void to_json()
-    {
-
-        // abre arquivo
-
-        // manipula arquivo
-
-        // salva arquivo
-    }
-};
-
 void load_from_disk(vector<Stimulus *> *stimuli)
 {
     stimuli->clear();
@@ -447,8 +422,11 @@ void load_from_disk(vector<Stimulus *> *stimuli)
         {
             if (root["type"] == "Fixing")
             {
+                cout << "Fixing " << endl;
                 Fixing *f = new Fixing;
+                cout << "Fixing1 " << endl;
                 *f = Fixing::from_json(root);
+                cout << "Fixing2 " << endl;
                 stimuli->push_back(f);
                 cout << f->to_string() << endl;
             }
@@ -470,9 +448,6 @@ void load_from_disk(vector<Stimulus *> *stimuli)
     }
 }
 
-Stimulus *current_stimulus;
-uint64_t current_stimulus_index = 0;
-
 #define COLOR_ACCENT ColorFromHSV(225, 0.75, 0.8)
 #define COLOR_BACKGROUND DARKGRAY
 #define COLOR_TRACK_PANEL_BACKGROUND ColorBrightness(COLOR_BACKGROUND, -0.1)
@@ -487,21 +462,25 @@ typedef enum
     BS_CLICKED = 2,   // 10
 } Button_State;
 
-int button_with_id(uint64_t id, Rectangle boundary)
+static void stimuli_panel(vector<Stimulus *> stimuli, Stimulus *selected, int *selected_index, Rectangle panel_boundary)
 {
-    Vector2 mouse = GetMousePosition();
-    int hoverover = CheckCollisionPointRec(mouse, boundary);
 
-    if (hoverover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    auto button_with_id = [selected_index](uint64_t id, Rectangle boundary)
     {
-        current_stimulus_index = id;
-    }
+        Vector2 mouse = GetMousePosition();
+        int hoverover = CheckCollisionPointRec(mouse, boundary);
 
-    return hoverover;
-}
+        if (hoverover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            cout << "Mouse clicked!" << endl;
+            *selected_index = id;
+            cout << *selected_index << endl;
+            hoverover = BS_CLICKED;
+        }
 
-static void stimuli_panel(vector<Stimulus *> stimuli, Rectangle panel_boundary)
-{
+        return hoverover;
+    };
+
     DrawRectangleRec(panel_boundary, COLOR_TRACK_PANEL_BACKGROUND);
 
     Vector2 mouse = GetMousePosition();
@@ -538,8 +517,6 @@ static void stimuli_panel(vector<Stimulus *> stimuli, Rectangle panel_boundary)
         panel_scroll = max_scroll;
     float panel_padding = item_size * 0.1;
 
-    uint64_t id = 0;
-
     BeginScissorMode(panel_boundary.x, panel_boundary.y, panel_boundary.width, panel_boundary.height);
     for (size_t i = 0; i < stimuli.size(); i++)
     {
@@ -550,7 +527,7 @@ static void stimuli_panel(vector<Stimulus *> stimuli, Rectangle panel_boundary)
             .height = item_size - panel_padding * 2,
         };
         Color color;
-        if ((i != current_stimulus_index))
+        if ((i != *selected_index))
         {
             int state = button_with_id(i, GetCollisionRec(panel_boundary, item_boundary));
             if (state & BS_HOVEROVER)
@@ -563,8 +540,8 @@ static void stimuli_panel(vector<Stimulus *> stimuli, Rectangle panel_boundary)
             }
             if (state & BS_CLICKED)
             {
-                current_stimulus = stimuli[i];
-                current_stimulus_index = i;
+                selected = stimuli[i];
+                *selected_index = i;
             }
         }
         else
@@ -702,6 +679,7 @@ int main(void)
         switch (current_screen)
         {
         case LOGO:
+        {
             DrawText("Stimuli", 5, screen_height - 50, 50, LIGHTGRAY);
             skip_count++;
             if (IsKeyPressed(KEY_ENTER) || skip_count > logo_time * screen_FPS)
@@ -710,24 +688,35 @@ int main(void)
                 skip_count = 0;
             }
             break;
-
+        }
         case MAIN:
+        {
             DrawText("Main", 5, screen_height - 50, 50, LIGHTGRAY);
             skip_count++;
 
-            stimuli_panel(stimuli, (Rectangle){
-                                       .x = 0,
-                                       .y = 0,
-                                       .width = 300,
-                                       .height = 400,
-                                   });
+            Stimulus *left_stimulus = 0;
+            int left_stimulus_index = 0;
+            stimuli_panel(stimuli,
+                          left_stimulus,
+                          &left_stimulus_index,
+                          (Rectangle){
+                              .x = 0,
+                              .y = 30,
+                              .width = 300,
+                              .height = 400,
+                          });
 
-            stimuli_panel(exp_stimuli, (Rectangle){
-                                           .x = 400,
-                                           .y = 0,
-                                           .width = 300,
-                                           .height = 400,
-                                       });
+            Stimulus *right_stimulus = 0;
+            int right_stimulus_index = 0;
+            stimuli_panel(exp_stimuli,
+                          right_stimulus,
+                          &right_stimulus_index,
+                          (Rectangle){
+                              .x = 400,
+                              .y = 30,
+                              .width = 300,
+                              .height = 400,
+                          });
 
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L))
             {
@@ -750,174 +739,180 @@ int main(void)
             }
 
             break;
-
+        }
         case EDITTING:
-            if (true)
+        {
+            using field = tuple<const char *, int *, int, int>;
+
+            vector<field> fixing_fields = {};
+            Fixing *fixing_stim = new Fixing();
+
+            fixing_fields.push_back(make_tuple("font_size", &fixing_stim->font_size, 1, 1000));
+            fixing_fields.push_back(make_tuple("center_x", &fixing_stim->center_x, 1, 1000));
+            fixing_fields.push_back(make_tuple("center_y", &fixing_stim->center_y, 1, 1000));
+            fixing_fields.push_back(make_tuple("FPS", &fixing_stim->FPS, 10, 1000));
+            fixing_fields.push_back(make_tuple("duration", &fixing_stim->duration, 1, 1000));
+            fixing_fields.push_back(make_tuple("seed", &fixing_stim->random_seed, 0, 1000));
+
+            vector<field> rc_fields = {};
+            RandomCircles *rc_stim = new RandomCircles();
+
+            rc_fields.push_back(make_tuple("N", &rc_stim->n, 1, 1000));
+            rc_fields.push_back(make_tuple("size", &rc_stim->size, 1, 1000));
+            rc_fields.push_back(make_tuple("inner", &rc_stim->inner_radius, 1, 1000));
+            rc_fields.push_back(make_tuple("outter", &rc_stim->outter_radius, 1, 1000));
+            rc_fields.push_back(make_tuple("FPS", &rc_stim->FPS, 10, 1000));
+            rc_fields.push_back(make_tuple("duration", &rc_stim->duration, 1, 1000));
+            rc_fields.push_back(make_tuple("seed", &rc_stim->random_seed, 0, 1000));
+
+            vector<field> cw_fields = {};
+            ColoredWords *cw_stim = new ColoredWords();
+
+            cw_fields.push_back(make_tuple("font_size", &cw_stim->font_size, 1, 100));
+            cw_fields.push_back(make_tuple("FPS", &cw_stim->FPS, 10, 1000));
+            cw_fields.push_back(make_tuple("duration", &cw_stim->duration, 1, 1000));
+            cw_fields.push_back(make_tuple("seed", &cw_stim->random_seed, 0, 1000));
+
+            int f_current = 0;
+            bool show_FPS = true;
+
+            Stim editting_type = RANDOM_CIRCLES;
+
+            fixing_stim->pick();
+
+            while (is_editting)
             {
-                using field = tuple<const char *, int *, int, int>;
+                BeginDrawing();
+                ClearBackground(RAYWHITE);
 
-                vector<field> fixing_fields = {};
-                Fixing *fixing_stim = new Fixing();
+                if (show_FPS)
+                    DrawFPS(10, 10);
 
-                fixing_fields.push_back(make_tuple("font_size", &fixing_stim->font_size, 1, 1000));
-                fixing_fields.push_back(make_tuple("center_x", &fixing_stim->center_x, 1, 1000));
-                fixing_fields.push_back(make_tuple("center_y", &fixing_stim->center_y, 1, 1000));
-                fixing_fields.push_back(make_tuple("FPS", &fixing_stim->FPS, 10, 1000));
-                fixing_fields.push_back(make_tuple("duration", &fixing_stim->duration, 1, 1000));
-                fixing_fields.push_back(make_tuple("seed", &fixing_stim->random_seed, 0, 1000));
-
-                vector<field> rc_fields = {};frame:
-                RandomCircles *rc_stim = new RandomCircles();
-
-                rc_fields.push_back(make_tuple("N", &rc_stim->n, 1, 1000));
-                rc_fields.push_back(make_tuple("size", &rc_stim->size, 1, 1000));
-                rc_fields.push_back(make_tuple("inner", &rc_stim->inner_radius, 1, 1000));
-                rc_fields.push_back(make_tuple("outter", &rc_stim->outter_radius, 1, 1000));
-                rc_fields.push_back(make_tuple("FPS", &rc_stim->FPS, 10, 1000));
-                rc_fields.push_back(make_tuple("duration", &rc_stim->duration, 1, 1000));
-                rc_fields.push_back(make_tuple("seed", &rc_stim->random_seed, 0, 1000));
-
-                vector<field> cw_fields = {};
-                ColoredWords *cw_stim = new ColoredWords();
-
-                cw_fields.push_back(make_tuple("font_size", &cw_stim->font_size, 1, 100));
-                cw_fields.push_back(make_tuple("FPS", &cw_stim->FPS, 10, 1000));
-                cw_fields.push_back(make_tuple("duration", &cw_stim->duration, 1, 1000));
-                cw_fields.push_back(make_tuple("seed", &cw_stim->random_seed, 0, 1000));
-
-                int f_current = 0;
-                bool show_FPS = true;
-
-                Stim editting_type = RANDOM_CIRCLES;
-
-                fixing_stim->pick();
-
-                while (is_editting)
+                if (IsKeyPressed(KEY_F))
                 {
-                    BeginDrawing();
-                    ClearBackground(RAYWHITE);
-
-                    if (show_FPS)
-                        DrawFPS(10, 10);
-
-                    if (IsKeyPressed(KEY_F))
-                    {
-                        show_FPS = !show_FPS;
-                    }
-
-                    SetTargetFPS(fixing_stim->FPS);
-
-                    Stimulus *editting_stimulus = 0;
-
-                    vector<field> field_vector;
-                    Stim next_editting_type;
-                    switch (editting_type)
-                    {
-                    case FIXING:
-                        editting_stimulus = fixing_stim;
-                        field_vector = fixing_fields;
-                        next_editting_type = COLORED_WORDS;
-                        editting_stimulus->pick_once = true;
-                        break;
-                    case COLORED_WORDS:
-                        editting_stimulus = cw_stim;
-                        field_vector = cw_fields;
-                        next_editting_type = RANDOM_CIRCLES;
-                        editting_stimulus->pick_once = true;
-                        break;
-                    default:
-                        editting_stimulus = rc_stim;
-                        field_vector = rc_fields;
-                        next_editting_type = FIXING;
-                        editting_stimulus->pick_once = false;
-                        break;
-                    }
-
-                    if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_ENTER))
-                        editting_type = next_editting_type;
-                    
-                    if (!editting_stimulus->pick_once || IsKeyPressed(KEY_SPACE))
-                        editting_stimulus->pick();
-                    editting_stimulus->draw();
-
-                    float field_height = 0;
-                    int field_count = 0;
-
-                    int field_index = f_current % field_vector.size();
-
-                    for (field f : field_vector)
-                    {
-                        GuiValueBox(
-                            (Rectangle){600, 140 + field_height, 120, 20},
-                            get<0>(f),
-                            get<1>(f),
-                            get<2>(f),
-                            get<3>(f),
-                            field_index == field_count);
-                        field_count += 1;
-                        field_height += 25;
-                    }
-
-                    if (IsKeyPressed(KEY_TAB))
-                    {
-                        if (IsKeyDown(KEY_LEFT_SHIFT))
-                        {
-                            f_current--;
-                        }
-                        else
-                        {
-                            f_current++;
-                        }
-                    }
-
-                    cout << field_index << endl;
-
-                    if (IsKeyPressed(KEY_UP) || IsKeyDown(KEY_RIGHT))
-                    {
-                        if (*get<1>(field_vector[field_index]) < get<3>(field_vector[field_index]))
-                            *get<1>(field_vector[field_index]) += 1;
-                    }
-
-                    if (IsKeyPressed(KEY_DOWN) || IsKeyDown(KEY_LEFT))
-                    {
-                        if (*get<1>(field_vector[field_index]) > get<2>(field_vector[field_index]))
-                            *get<1>(field_vector[field_index]) -= 1;
-                    }
-
-                    if (IsKeyPressed(KEY_S))
-                    {
-                        if (IsKeyDown(KEY_LEFT_CONTROL))
-                        {
-                            editting_stimulus->save();
-                            is_editting = false;
-                        }
-                    }
-
-                    if (IsKeyPressed(KEY_C))
-                    {
-                        if (IsKeyDown(KEY_LEFT_CONTROL))
-                        {
-                            delete editting_stimulus;
-                            is_editting = false;
-                        }
-                    }
-
-                    EndDrawing();
+                    show_FPS = !show_FPS;
                 }
 
-                current_screen = MAIN;
+                SetTargetFPS(fixing_stim->FPS);
 
-                break;
+                Stimulus *editting_stimulus = 0;
+
+                vector<field> field_vector;
+                Stim next_editting_type;
+                switch (editting_type)
+                {
+                case FIXING:
+                    editting_stimulus = fixing_stim;
+                    field_vector = fixing_fields;
+                    next_editting_type = COLORED_WORDS;
+                    editting_stimulus->pick_once = true;
+                    break;
+                case COLORED_WORDS:
+                    editting_stimulus = cw_stim;
+                    field_vector = cw_fields;
+                    next_editting_type = RANDOM_CIRCLES;
+                    editting_stimulus->pick_once = true;
+                    break;
+                default:
+                    editting_stimulus = rc_stim;
+                    field_vector = rc_fields;
+                    next_editting_type = FIXING;
+                    editting_stimulus->pick_once = false;
+                    break;
+                }
+
+                if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_ENTER))
+                    editting_type = next_editting_type;
+
+                if (!editting_stimulus->pick_once || IsKeyPressed(KEY_SPACE))
+                    editting_stimulus->pick();
+                editting_stimulus->draw();
+
+                float field_height = 0;
+                int field_count = 0;
+
+                int field_index = f_current % field_vector.size();
+
+                for (field f : field_vector)
+                {
+                    GuiValueBox(
+                        (Rectangle){600, 140 + field_height, 120, 20},
+                        get<0>(f),
+                        get<1>(f),
+                        get<2>(f),
+                        get<3>(f),
+                        field_index == field_count);
+                    field_count += 1;
+                    field_height += 25;
+                }
+
+                if (IsKeyPressed(KEY_TAB))
+                {
+                    if (IsKeyDown(KEY_LEFT_SHIFT))
+                    {
+                        f_current--;
+                    }
+                    else
+                    {
+                        f_current++;
+                    }
+                }
+
+                cout << field_index << endl;
+
+                if (IsKeyPressed(KEY_UP) || IsKeyDown(KEY_RIGHT))
+                {
+                    if (*get<1>(field_vector[field_index]) < get<3>(field_vector[field_index]))
+                        *get<1>(field_vector[field_index]) += 1;
+                }
+
+                if (IsKeyPressed(KEY_DOWN) || IsKeyDown(KEY_LEFT))
+                {
+                    if (*get<1>(field_vector[field_index]) > get<2>(field_vector[field_index]))
+                        *get<1>(field_vector[field_index]) -= 1;
+                }
+
+                if (IsKeyPressed(KEY_S))
+                {
+                    if (IsKeyDown(KEY_LEFT_CONTROL))
+                    {
+                        editting_stimulus->save();
+                    }
+                }
+
+                if (IsKeyPressed(KEY_C))
+                {
+                    if (IsKeyDown(KEY_LEFT_CONTROL))
+                    {
+
+                        delete cw_stim;
+                        delete rc_stim;
+                        delete fixing_stim;
+                        // delete editting_stimulus;
+                        is_editting = false;
+                    }
+                }
+
+                EndDrawing();
             }
+
+            current_screen = MAIN;
+
+            break;
+        }
         case PRESENTING:
+        {
             while (is_presenting)
             {
             }
             current_screen = REPORT;
             break;
+        }
         case REPORT:
+        {
             current_screen = MAIN;
             break;
+        }
         default:
             break;
         }
