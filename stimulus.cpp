@@ -755,53 +755,47 @@ int main(void)
             if (true)
             {
                 using field = tuple<const char *, int *, int, int>;
-                vector<field> field_vector = {};
 
-                switch (current_stimulus_type)
-                {
-                case FIXING:
-                    Fixing *editting_fix_stim = new Fixing();
-                    field_vector.push_back(make_tuple("font_size", &editting_fix_stim->font_size, 1, 1000));
-                    field_vector.push_back(make_tuple("center_x", &editting_fix_stim->center_x, 1, 1000));
-                    field_vector.push_back(make_tuple("center_y", &editting_fix_stim->center_y, 1, 1000));
+                vector<field> fixing_fields = {};
+                Fixing *fixing_stim = new Fixing();
 
-                    break;
-                case RANDOM_CIRCLES:
-                    RandomCircles *editting_stim = new RandomCircles();
+                fixing_fields.push_back(make_tuple("font_size", &fixing_stim->font_size, 1, 1000));
+                fixing_fields.push_back(make_tuple("center_x", &fixing_stim->center_x, 1, 1000));
+                fixing_fields.push_back(make_tuple("center_y", &fixing_stim->center_y, 1, 1000));
+                fixing_fields.push_back(make_tuple("FPS", &fixing_stim->FPS, 10, 1000));
+                fixing_fields.push_back(make_tuple("duration", &fixing_stim->duration, 1, 1000));
+                fixing_fields.push_back(make_tuple("seed", &fixing_stim->random_seed, 0, 1000));
 
-                    field_vector.push_back(make_tuple("N", &editting_stim->n, 1, 1000));
-                    field_vector.push_back(make_tuple("size", &editting_stim->size, 1, 1000));
-                    field_vector.push_back(make_tuple("inner", &editting_stim->inner_radius, 1, 1000));
-                    field_vector.push_back(make_tuple("outter", &editting_stim->outter_radius, 1, 1000));
+                vector<field> rc_fields = {};frame:
+                RandomCircles *rc_stim = new RandomCircles();
 
-                    break;
-                case COLORED_WORDS:
-                    ColoredWords *editting_stim = new ColoredWords();
+                rc_fields.push_back(make_tuple("N", &rc_stim->n, 1, 1000));
+                rc_fields.push_back(make_tuple("size", &rc_stim->size, 1, 1000));
+                rc_fields.push_back(make_tuple("inner", &rc_stim->inner_radius, 1, 1000));
+                rc_fields.push_back(make_tuple("outter", &rc_stim->outter_radius, 1, 1000));
+                rc_fields.push_back(make_tuple("FPS", &rc_stim->FPS, 10, 1000));
+                rc_fields.push_back(make_tuple("duration", &rc_stim->duration, 1, 1000));
+                rc_fields.push_back(make_tuple("seed", &rc_stim->random_seed, 0, 1000));
 
-                    field_vector.push_back(make_tuple("font_size", &editting_stim->font_size, 1, 100));
-                    break;
-                }
-                
-                // RandomCircles *editting_stim = new RandomCircles();
+                vector<field> cw_fields = {};
+                ColoredWords *cw_stim = new ColoredWords();
 
-                // field_vector.push_back(make_tuple("N", &editting_stim->n, 1, 1000));
-                // field_vector.push_back(make_tuple("size", &editting_stim->size, 1, 1000));
-                // field_vector.push_back(make_tuple("inner", &editting_stim->inner_radius, 1, 1000));
-                // field_vector.push_back(make_tuple("outter", &editting_stim->outter_radius, 1, 1000));
-                // field_vector.push_back(make_tuple("FPS", &editting_stim->FPS, 10, 1000));
-                // field_vector.push_back(make_tuple("duration", &editting_stim->duration, 1, 1000));
-                // field_vector.push_back(make_tuple("seed", &editting_stim->random_seed, 0, 1000));
+                cw_fields.push_back(make_tuple("font_size", &cw_stim->font_size, 1, 100));
+                cw_fields.push_back(make_tuple("FPS", &cw_stim->FPS, 10, 1000));
+                cw_fields.push_back(make_tuple("duration", &cw_stim->duration, 1, 1000));
+                cw_fields.push_back(make_tuple("seed", &cw_stim->random_seed, 0, 1000));
 
                 int f_current = 0;
                 bool show_FPS = true;
 
-                editting_stim->pick();
+                Stim editting_type = RANDOM_CIRCLES;
+
+                fixing_stim->pick();
 
                 while (is_editting)
                 {
                     BeginDrawing();
                     ClearBackground(RAYWHITE);
-                    SetTargetFPS(editting_stim->FPS);
 
                     if (show_FPS)
                         DrawFPS(10, 10);
@@ -811,10 +805,40 @@ int main(void)
                         show_FPS = !show_FPS;
                     }
 
-                    if (!editting_stim->pick_once || IsKeyPressed(KEY_ENTER))
-                        editting_stim->pick();
+                    SetTargetFPS(fixing_stim->FPS);
 
-                    editting_stim->draw();
+                    Stimulus *editting_stimulus = 0;
+
+                    vector<field> field_vector;
+                    Stim next_editting_type;
+                    switch (editting_type)
+                    {
+                    case FIXING:
+                        editting_stimulus = fixing_stim;
+                        field_vector = fixing_fields;
+                        next_editting_type = COLORED_WORDS;
+                        editting_stimulus->pick_once = true;
+                        break;
+                    case COLORED_WORDS:
+                        editting_stimulus = cw_stim;
+                        field_vector = cw_fields;
+                        next_editting_type = RANDOM_CIRCLES;
+                        editting_stimulus->pick_once = true;
+                        break;
+                    default:
+                        editting_stimulus = rc_stim;
+                        field_vector = rc_fields;
+                        next_editting_type = FIXING;
+                        editting_stimulus->pick_once = false;
+                        break;
+                    }
+
+                    if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_ENTER))
+                        editting_type = next_editting_type;
+                    
+                    if (!editting_stimulus->pick_once || IsKeyPressed(KEY_SPACE))
+                        editting_stimulus->pick();
+                    editting_stimulus->draw();
 
                     float field_height = 0;
                     int field_count = 0;
@@ -846,6 +870,8 @@ int main(void)
                         }
                     }
 
+                    cout << field_index << endl;
+
                     if (IsKeyPressed(KEY_UP) || IsKeyDown(KEY_RIGHT))
                     {
                         if (*get<1>(field_vector[field_index]) < get<3>(field_vector[field_index]))
@@ -862,7 +888,7 @@ int main(void)
                     {
                         if (IsKeyDown(KEY_LEFT_CONTROL))
                         {
-                            editting_stim->save();
+                            editting_stimulus->save();
                             is_editting = false;
                         }
                     }
@@ -871,7 +897,7 @@ int main(void)
                     {
                         if (IsKeyDown(KEY_LEFT_CONTROL))
                         {
-                            delete editting_stim;
+                            delete editting_stimulus;
                             is_editting = false;
                         }
                     }
