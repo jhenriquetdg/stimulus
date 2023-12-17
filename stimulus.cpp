@@ -136,6 +136,22 @@ public:
     int center_y = middle_y_screen;
     Color color = LIGHTGRAY;
 
+    Fixing()
+    {
+        this->sign = "+";
+        this->font_size = 20 + rand() % 100;
+        this->center_x = middle_x_screen;
+        this->center_y = middle_y_screen;
+        this->pick_once = true;
+    }
+    Fixing(const char *sign, int font_size, int center_x, int center_y)
+    {
+        this->sign = sign;
+        this->font_size = font_size;
+        this->center_x = center_x;
+        this->center_y = center_y;
+        this->pick_once = true;
+    }
     void pick() override
     {
     }
@@ -214,7 +230,13 @@ public:
 
     Color color = BLACK;
 
-    RandomCircles() {}
+    RandomCircles()
+    {
+        this->n = 50 + rand() % 200;
+        this->size = 1 + rand() % 20;
+        this->inner_radius = 50 + rand() % 200;
+        this->inner_radius = 150 + rand() % 200;
+    }
     RandomCircles(int n, int s, int irad, int orad, int FPS, int duration, int repetitions, int random_seed)
     {
         this->n = n;
@@ -346,6 +368,14 @@ public:
         word_color("Black", BLACK),
         word_color("Magenta", MAGENTA)};
 
+    ColoredWords()
+    {
+        this->font_size = 20 + rand() % 100;
+    }
+    ColoredWords(int font_size)
+    {
+        this->font_size = font_size;
+    }
     void pick()
     {
         word_index = rand() % wc.size();
@@ -419,11 +449,8 @@ void load_from_disk(vector<Stimulus *> *stimuli)
         {
             if (root["type"] == "Fixing")
             {
-                cout << "Fixing " << endl;
                 Fixing *f = new Fixing;
-                cout << "Fixing1 " << endl;
                 *f = Fixing::from_json(root);
-                cout << "Fixing2 " << endl;
                 stimuli->push_back(f);
                 cout << f->to_string() << endl;
             }
@@ -459,7 +486,7 @@ typedef enum
     BS_CLICKED = 2,   // 10
 } Button_State;
 
-static void stimuli_panel(vector<Stimulus *> stimuli, Stimulus *selected, int *selected_index, Rectangle panel_boundary)
+static void stimuli_panel(vector<Stimulus *> stimuli, int *selected_index, Rectangle panel_boundary)
 {
 
     auto button_with_id = [selected_index](uint64_t id, Rectangle boundary)
@@ -469,10 +496,8 @@ static void stimuli_panel(vector<Stimulus *> stimuli, Stimulus *selected, int *s
 
         if (hoverover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
-            cout << "Mouse clicked!" << endl;
             *selected_index = id;
-            cout << *selected_index << endl;
-            hoverover = BS_CLICKED;
+            hoverover = 3;
         }
 
         return hoverover;
@@ -537,7 +562,6 @@ static void stimuli_panel(vector<Stimulus *> stimuli, Stimulus *selected, int *s
             }
             if (state & BS_CLICKED)
             {
-                selected = stimuli[i];
                 *selected_index = i;
             }
         }
@@ -634,6 +658,12 @@ int main(void)
 
     load_from_disk(&stimuli);
 
+    Stimulus *right_stimulus = 0;
+    int right_stimulus_index = 0;
+
+    Stimulus *left_stimulus = 0;
+    int left_stimulus_index = 0;
+
     Screen current_screen = LOGO;
 
     bool should_close = false;
@@ -691,10 +721,7 @@ int main(void)
             DrawText("Main", 5, screen_height - 50, 50, LIGHTGRAY);
             skip_count++;
 
-            Stimulus *left_stimulus = 0;
-            int left_stimulus_index = 0;
             stimuli_panel(stimuli,
-                          left_stimulus,
                           &left_stimulus_index,
                           (Rectangle){
                               .x = 0,
@@ -703,10 +730,8 @@ int main(void)
                               .height = 400,
                           });
 
-            Stimulus *right_stimulus = 0;
-            int right_stimulus_index = 0;
+            left_stimulus = stimuli[left_stimulus_index];
             stimuli_panel(exp_stimuli,
-                          right_stimulus,
                           &right_stimulus_index,
                           (Rectangle){
                               .x = 400,
@@ -714,6 +739,14 @@ int main(void)
                               .width = 300,
                               .height = 400,
                           });
+
+            if (IsKeyPressed(KEY_A))
+            {
+                cout << "Press A" << endl;
+                cout << "Current left is "<< left_stimulus << endl;
+                cout << left_stimulus->to_json() << endl;
+                exp_stimuli.push_back(left_stimulus);
+            }
 
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L))
             {
@@ -881,11 +914,10 @@ int main(void)
                 {
                     if (IsKeyDown(KEY_LEFT_CONTROL))
                     {
-
                         delete cw_stim;
                         delete rc_stim;
                         delete fixing_stim;
-                        // delete editting_stimulus;
+                        
                         is_editting = false;
                     }
                 }
