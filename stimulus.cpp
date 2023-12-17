@@ -25,8 +25,9 @@ unsigned int middle_x_screen = screen_width / 2;
 unsigned int middle_y_screen = screen_height / 2;
 
 bool should_break = false;
+
 bool is_presenting = false;
-bool is_editting = true;
+bool is_editting = false;
 
 Font font = GetFontDefault();
 
@@ -58,7 +59,7 @@ public:
     vector<int> keys = {};
     vector<double> timestamps = {};
 
-    int skip_key = KEY_ENTER;
+    int skip_key = KEY_ESCAPE;
     Color background = RAYWHITE;
 
     bool pick_once = false;
@@ -80,7 +81,6 @@ public:
 
     void present()
     {
-        is_presenting = true;
         int frame_end = (int)(this->duration * this->FPS);
 
         SetTargetFPS(this->FPS);
@@ -122,7 +122,6 @@ public:
                 EndDrawing();
             }
             ClearBackground(RAYWHITE);
-            is_presenting = false;
         }
     }
 };
@@ -144,9 +143,9 @@ public:
         this->center_y = middle_y_screen;
         this->pick_once = true;
     }
-    Fixing(const char *sign, int font_size, int center_x, int center_y)
+    Fixing(int font_size, int center_x, int center_y)
     {
-        this->sign = sign;
+        this->sign = "+";
         this->font_size = font_size;
         this->center_x = center_x;
         this->center_y = center_y;
@@ -198,7 +197,8 @@ public:
 
         if (root["type"] == "Fixing")
         {
-            s->sign = root.isMember("sign") ? root["sign"].asCString() : "+";
+            // s->sign = root.isMember("sign") ? root["sign"].asCString() : "+";
+            s->sign = "+";
             s->font_size = root.isMember("font_size") ? root["font_size"].asInt() : 1;
             s->center_x = root.isMember("center_x") ? root["center_x"].asInt() : 1;
             s->center_y = root.isMember("center_Y") ? root["center_Y"].asInt() : 1;
@@ -433,7 +433,11 @@ public:
         return *s;
     }
 };
-
+void delete_from_disk(vector<Stimulus *> *stimuli)
+{
+    system("rm -rf ./files/stimuli/*.json");
+    stimuli->clear();
+}
 void load_from_disk(vector<Stimulus *> *stimuli)
 {
     stimuli->clear();
@@ -642,6 +646,12 @@ static void stimuli_panel(vector<Stimulus *> stimuli, int *selected_index, Recta
     EndScissorMode();
 }
 
+void checkIs()
+{
+    cout << "is_editting " << is_editting << endl;
+    cout << "is_presenting " << is_presenting << endl;
+}
+
 int main(void)
 {
     // Setting raylib variables
@@ -669,10 +679,6 @@ int main(void)
     bool should_close = false;
 
     unsigned int logo_time = 5; // in seconds
-
-    bool is_escaping = false;
-    unsigned int escape_time = 5;
-    unsigned int escape_count = 0;
 
     unsigned int skip_count = 0;
 
@@ -742,15 +748,28 @@ int main(void)
 
             if (IsKeyPressed(KEY_A))
             {
-                cout << "Press A" << endl;
-                cout << "Current left is "<< left_stimulus << endl;
+                cout << "Current left is " << left_stimulus << endl;
                 cout << left_stimulus->to_json() << endl;
                 exp_stimuli.push_back(left_stimulus);
+            }
+
+            if (IsKeyPressed(KEY_D))
+            {
+                if (exp_stimuli.size() > 0)
+                {
+                    exp_stimuli.erase(exp_stimuli.begin() + right_stimulus_index);
+                    right_stimulus_index = 0;
+                }
             }
 
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_L))
             {
                 load_from_disk(&stimuli);
+            }
+
+            if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_D))
+            {
+                delete_from_disk(&stimuli);
             }
 
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_E))
@@ -762,9 +781,8 @@ int main(void)
 
             if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_P))
             {
-                RandomCircles *rc = new RandomCircles();
-                rc->present();
                 is_presenting = true;
+                is_editting = false;
                 current_screen = PRESENTING;
             }
 
@@ -917,7 +935,7 @@ int main(void)
                         delete cw_stim;
                         delete rc_stim;
                         delete fixing_stim;
-                        
+
                         is_editting = false;
                     }
                 }
@@ -931,8 +949,17 @@ int main(void)
         }
         case PRESENTING:
         {
+            checkIs();
+            cout << &exp_stimuli << endl;
+            for (auto s : exp_stimuli)
+                cout << s->to_string() << endl;
             while (is_presenting)
             {
+                for (auto s : exp_stimuli)
+                {
+                    s->present();
+                }
+                is_presenting = false;
             }
             current_screen = REPORT;
             break;
