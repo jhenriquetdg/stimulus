@@ -6,12 +6,9 @@
 
 #include <jsoncpp/json/json.h>
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <iostream>
 #include <complex>
 #include <vector>
-#include <math.h>
 #include <chrono>
 #include <tuple>
 #include <fstream>
